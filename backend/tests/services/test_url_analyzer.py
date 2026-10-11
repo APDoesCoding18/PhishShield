@@ -28,7 +28,7 @@ def test_url_analyzer_normal(db):
     assert res.status == "success"
     assert len(res.findings) == 0
     
-    db_url = db.query(URL).first()
+    db_url = db.query(URL).filter(URL.email_id == email.id).first()
     assert db_url.domain == "www.google.com"
     assert db_url.scheme == "https"
     assert db_url.port is None
@@ -47,7 +47,7 @@ def test_url_analyzer_ip_based(db):
     types = [f.type for f in res.findings]
     assert "ip_url" in types
     
-    db_url = db.query(URL).first()
+    db_url = db.query(URL).filter(URL.email_id == email.id).first()
     assert db_url.is_ip is True
 
 def test_url_analyzer_shortener(db):

@@ -17,6 +17,16 @@ class AnalysisJobDetailResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+class AnalysisHistoryItemResponse(BaseModel):
+    job_id: str
+    original_filename: Optional[str] = None
+    status: JobStatus
+    created_at: datetime
+    updated_at: datetime
+    verdict: Optional[str] = None
+    score: Optional[float] = None
+    severity: Optional[str] = None
+
 class FindingResponse(BaseModel):
     type: str
     category: str

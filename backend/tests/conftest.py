@@ -7,8 +7,8 @@ from app.main import app
 from app.core.database import Base, get_db
 from app.core.config import settings
 
-# Test database setup (using sqlite for testing to avoid needing a real PG server in CI by default, or you can use test-pg)
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+# Test database setup (use a separate test db file so running pytest does not wipe development test.db)
+SQLALCHEMY_DATABASE_URL = "sqlite:///./test_runner.db"
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}

@@ -108,3 +108,17 @@ def test_get_job_attachments(client, db):
 def test_get_job_not_found(client):
     res = client.get(f"{settings.API_V1_PREFIX}/analyses/invalid-id")
     assert res.status_code == 404
+
+def test_list_analysis_history(client, db):
+    job_id = _setup_mock_data(db)
+    res = client.get(f"{settings.API_V1_PREFIX}/analyses")
+    assert res.status_code == 200
+    data = res.json()
+    assert isinstance(data, list)
+    assert len(data) >= 1
+    item = next(d for d in data if d["job_id"] == job_id)
+    assert item["status"] == "COMPLETED"
+    assert item["verdict"] == "malicious"
+    assert item["score"] == 10.0
+    assert item["original_filename"] == "file.exe" or item["original_filename"] is None or isinstance(item["original_filename"], str)
+

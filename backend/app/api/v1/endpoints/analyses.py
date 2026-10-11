@@ -8,15 +8,57 @@ from app.models.analysis import AnalysisJob, Email, Attachment, URL, JobStatus
 from app.models.risk import RiskResult
 from app.models.finding import Finding
 from app.schemas.analysis import (
-    AnalysisJobResponse, AnalysisJobDetailResponse, RiskResultResponse, 
-    FindingResponse, EmailResponse, UrlResponse, AttachmentResponse
+    AnalysisJobResponse, AnalysisJobDetailResponse, AnalysisHistoryItemResponse,
+    RiskResultResponse, FindingResponse, EmailResponse, UrlResponse, AttachmentResponse
 )
 from app.schemas.error import ErrorResponse
 from app.services.upload import secure_upload_email, UploadException
 from app.workers.orchestrator import run_analysis_pipeline
+from typing import List, Optional
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+@router.get("", response_model=List[AnalysisHistoryItemResponse])
+def list_analysis_history(
+    limit: int = 50,
+    offset: int = 0,
+    status: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Returns real persisted analysis records with filenames, status, timestamps, and verdicts.
+    """
+    limit = max(1, min(limit, 100))
+    offset = max(0, offset)
+
+    query = db.query(AnalysisJob)
+    if status:
+        query = query.filter(AnalysisJob.status == status.upper())
+
+    jobs = query.order_by(AnalysisJob.created_at.desc()).offset(offset).limit(limit).all()
+
+    results: List[AnalysisHistoryItemResponse] = []
+    for job in jobs:
+        # Get associated email for original filename
+        email_record = db.query(Email).filter(Email.job_id == job.id).first()
+        # Get risk result if completed
+        risk = db.query(RiskResult).filter(RiskResult.job_id == job.id).first()
+
+        results.append(
+            AnalysisHistoryItemResponse(
+                job_id=job.id,
+                original_filename=email_record.original_filename if email_record else None,
+                status=job.status,
+                created_at=job.created_at,
+                updated_at=job.updated_at,
+                verdict=risk.verdict if risk else None,
+                score=risk.score if risk else None,
+                severity=risk.severity if risk else None,
+            )
+        )
+
+    return results
 
 @router.post("", response_model=AnalysisJobResponse, responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}})
 def create_analysis_job(file: UploadFile = File(...), db: Session = Depends(get_db)):

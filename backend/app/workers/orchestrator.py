@@ -1,5 +1,5 @@
 import logging
-from celery import shared_task
+from app.core.celery_app import celery_app
 from app.core.database import SessionLocal
 from app.models.analysis import AnalysisJob, JobStatus, Email
 from app.models.finding import Finding
@@ -13,7 +13,7 @@ from app.services.risk_engine import RiskEngine
 
 logger = logging.getLogger(__name__)
 
-@shared_task(name="run_analysis_pipeline")
+@celery_app.task(name="run_analysis_pipeline")
 def run_analysis_pipeline(job_id: str):
     """
     Background worker orchestrating the entire static analysis pipeline.

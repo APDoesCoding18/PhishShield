@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     # Database and Redis Configuration (defaulting to empty so we don't hardcode secrets, but we can set test defaults or allow them to be read from env)
     DATABASE_URL: str = Field(default="sqlite:///./test.db") # Using sqlite fallback for testing if no env provided, but expecting postgres in prod
     REDIS_URL: str = Field(default="redis://localhost:6379/0")
+    CELERY_TASK_ALWAYS_EAGER: bool = Field(default=False)
 
     model_config = SettingsConfigDict(
         env_file=".env",

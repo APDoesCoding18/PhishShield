@@ -13,6 +13,10 @@ async def lifespan(app: FastAPI):
     setup_logging()
     logger.info("PhishShield application starting up...")
     logger.info(f"Environment: {settings.APP_ENV}")
+    # Ensure tables exist for SQLite/dev setups
+    from app.models.base import Base
+    from app.core.database import engine
+    Base.metadata.create_all(bind=engine)
     yield
     # Application Shutdown
     logger.info("PhishShield application shutting down...")
