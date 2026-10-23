@@ -47,6 +47,7 @@ MALICIOUS_FINDING_TYPES = {
 SUSPICIOUS_STRONG_TYPES = {
     "credential_request_indicator",
     "impersonation_indicator",
+    "ml_phishing_content",
     "dmarc_fail",
     "spf_fail",
     "ip_url",

@@ -3,5 +3,13 @@ __pycache__/
 *.pyc
 .pytest_cache/
 test.db
+phishshield.db
+*.db
 .env
 setup-docs/
+node_modules/
+phishing_email.csv
+dist/
+desktop.ini
+uploads/
+backend/uploads/

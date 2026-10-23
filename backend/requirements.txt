@@ -11,3 +11,5 @@ pytest
 pytest-asyncio
 httpx
 python-multipart
+scikit-learn
+joblib
