@@ -1,6 +1,7 @@
 import re
 import ipaddress
 import urllib.parse
+from urllib.parse import urlsplit, urlunsplit
 from typing import List, Dict, Any
 
 from app.schemas.analyzer import AnalysisContext, AnalysisResult, FindingSchema
@@ -20,6 +21,41 @@ class UrlAnalyzer:
     
     NAME = "UrlAnalyzer"
     VERSION = "1.0.0"
+
+    @staticmethod
+    def normalize_url(url: str) -> str:
+        """Normalize URL scheme and hostname while preserving the URL path."""
+        if not isinstance(url, str):
+            return ""
+
+        url = url.strip().rstrip(".,;!?")
+        if not url:
+            return ""
+
+        if not re.match(r"^https?://", url, re.IGNORECASE):
+            url = "http://" + url
+
+        try:
+            parts = urlsplit(url)
+
+            if not parts.hostname:
+                return ""
+
+            hostname = parts.hostname.lower()
+
+            if parts.port is not None:
+                hostname = f"{hostname}:{parts.port}"
+
+            return urlunsplit((
+                parts.scheme.lower(),
+                hostname,
+                parts.path,
+                parts.query,
+                parts.fragment
+            ))
+
+        except (ValueError, TypeError):
+            return ""
 
     def analyze(self, context: AnalysisContext) -> AnalysisResult:
         result = AnalysisResult(
@@ -51,8 +87,17 @@ class UrlAnalyzer:
     def _analyze_url(self, db_url: URL, result: AnalysisResult) -> None:
         raw_url = db_url.url
         try:
-            # Parse URL safely
-            parsed = urllib.parse.urlparse(raw_url)
+            # Normalize URL before parsing
+            normalized = self.normalize_url(raw_url)
+
+            if not normalized:
+                result.findings.append(self._create_finding(
+                    "malformed_url", "medium", "high", "Malformed URL",
+                    "URL is empty or could not be normalized.", raw_url
+                ))
+                return
+
+            parsed = urllib.parse.urlparse(normalized)
             
             # Normalize URL
             db_url.scheme = parsed.scheme.lower() if parsed.scheme else None
