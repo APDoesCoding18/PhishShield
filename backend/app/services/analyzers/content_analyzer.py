@@ -1,4 +1,5 @@
 import re
+import html
 from typing import List, Dict, Any, Tuple
 from app.schemas.analyzer import AnalysisContext, AnalysisResult, FindingSchema
 
@@ -32,6 +33,32 @@ class ContentAnalyzer:
         )
     }
 
+    def _preprocess_text(self, text: str) -> str:
+        """Normalize email text and remove non-visible HTML content."""
+        if not text:
+            return ""
+
+        # Remove HTML comments
+        text = re.sub(r"<!--.*?-->", " ", text, flags=re.DOTALL)
+
+        # Remove script, style, and other non-visible document sections
+        text = re.sub(
+            r"<(script|style|head|title|noscript)\b[^>]*>.*?</\1\s*>",
+            " ",
+            text,
+            flags=re.IGNORECASE | re.DOTALL
+        )
+
+        # Remove remaining HTML tags
+        text = re.sub(r"<[^>]+>", " ", text)
+
+        # Decode HTML entities such as &amp; and &nbsp;
+        text = html.unescape(text)
+
+        # Normalize whitespace
+        text = re.sub(r"\s+", " ", text)
+        return text.strip()
+
     def analyze(self, context: AnalysisContext) -> AnalysisResult:
         result = AnalysisResult(
             analyzer_name=self.NAME,
@@ -42,15 +69,19 @@ class ContentAnalyzer:
         try:
             email_record = context.email_record
             
-            # Combine subject and body text for analysis
-            text_to_analyze = ""
-            if email_record.subject:
-                text_to_analyze += email_record.subject + "\n\n"
+            # Preprocess the subject and body before analysis
+            subject = self._preprocess_text(email_record.subject or "")
+
             if email_record.body_text:
-                text_to_analyze += email_record.body_text
+                body = self._preprocess_text(email_record.body_text)
             elif email_record.body_html:
-                # If only HTML is present, we do a very basic tag strip for MVP rules
-                text_to_analyze += re.sub(r'<[^>]+>', ' ', email_record.body_html)
+                body = self._preprocess_text(email_record.body_html)
+            else:
+                body = ""
+
+            text_to_analyze = "\n\n".join(
+                part for part in (subject, body) if part
+            )
                 
             if not text_to_analyze.strip():
                 result.findings.append(self._create_finding(

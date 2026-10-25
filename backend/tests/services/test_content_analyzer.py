@@ -110,3 +110,109 @@ def test_exception_handling(content_analyzer):
     
     assert result.status == "error"
     assert "Content Analysis failed" in result.warnings[0]
+
+def test_html_removes_script_and_style_content(content_analyzer):
+    email = Email(
+        id="test-8",
+        subject="Account Notice",
+        body_text="",
+        body_html="""
+        <html>
+            <head>
+                <title>Hidden Title</title>
+                <style>urgent payment required</style>
+            </head>
+            <body>
+                Please <b>login</b> to your account.
+                <script>urgent payment required</script>
+            </body>
+        </html>
+        """
+    )
+
+    context = AnalysisContext(
+        job_id="job-8",
+        workspace_path="/tmp",
+        email_record=email
+    )
+
+    result = content_analyzer.analyze(context)
+
+    assert result.status == "success"
+
+    types = [finding.type for finding in result.findings]
+
+    assert "credential_request_indicator" in types
+    assert "urgency_indicator" not in types
+    assert "financial_indicator" not in types
+
+
+def test_html_entities_and_whitespace(content_analyzer):
+    email = Email(
+        id="test-9",
+        subject="",
+        body_text="",
+        body_html="""
+        <html><body>
+            Please&nbsp;verify your account &amp;
+            login immediately.
+        </body></html>
+        """
+    )
+
+    context = AnalysisContext(
+        job_id="job-9",
+        workspace_path="/tmp",
+        email_record=email
+    )
+
+    result = content_analyzer.analyze(context)
+
+    assert result.status == "success"
+
+    types = [finding.type for finding in result.findings]
+
+    assert "credential_request_indicator" in types
+    assert "urgency_indicator" in types
+
+
+def test_preprocess_plain_text(content_analyzer):
+    text = "  URGENT!!!   Verify   your account.  "
+
+    result = content_analyzer._preprocess_text(text)
+
+    assert result == "URGENT!!! Verify your account."
+
+
+def test_preprocess_empty_text(content_analyzer):
+    assert content_analyzer._preprocess_text("") == ""
+    assert content_analyzer._preprocess_text(None) == ""
+
+
+def test_html_with_only_non_visible_content(content_analyzer):
+    email = Email(
+        id="test-10",
+        subject="",
+        body_text="",
+        body_html="""
+        <html>
+            <head><title>Hidden title</title></head>
+            <body>
+                <script>urgent payment required</script>
+                <style>verify your account</style>
+            </body>
+        </html>
+        """
+    )
+
+    context = AnalysisContext(
+        job_id="job-10",
+        workspace_path="/tmp",
+        email_record=email
+    )
+
+    result = content_analyzer.analyze(context)
+
+    assert result.status == "success"
+    assert len(result.findings) == 1
+    assert result.findings[0].type == "empty_content"
