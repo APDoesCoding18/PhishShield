@@ -138,30 +138,50 @@ class ContentAnalyzer:
                             {"matched_phrases": unique_matches}
                         ))
 
-            # Run Machine Learning Inference (Best Model: Classical NLP 98.84% accuracy)
+            # Run Machine Learning Inference
             from app.services.analyzers.nlp_service import NLPInferenceService
+
             nlp_service = NLPInferenceService()
-            if nlp_service.is_ready:
-                prediction = nlp_service.predict(text_to_analyze)
+            prediction = nlp_service.predict(text_to_analyze)
+
+            if prediction["status"] == "success":
                 prob = prediction["phishing_probability"]
+
                 result.metrics["ml_phishing_probability"] = prob
                 result.metrics["ml_confidence"] = prediction["confidence_level"]
-                result.metrics["ml_model"] = "TF-IDF + Calibrated Classifier (NLP)"
+                result.metrics["ml_model"] = (
+                    "TF-IDF + Calibrated Classifier (NLP)"
+                )
 
                 if prediction["is_phishing"] and prob >= 0.50:
-                    severity = "critical" if prob >= 0.85 else ("high" if prob >= 0.70 else "medium")
+                    severity = (
+                        "critical" if prob >= 0.85
+                        else "high" if prob >= 0.70
+                        else "medium"
+                    )
+
                     result.findings.append(self._create_finding(
                         "ml_phishing_content",
                         severity,
                         prediction["confidence_level"],
-                        f"ML Model Phishing Detection ({prob*100:.1f}% Risk)",
-                        f"The NLP machine learning classifier flagged email text with a {prob*100:.1f}% probability of being a phishing attack.",
+                        f"ML Model Phishing Detection ({prob * 100:.1f}% Risk)",
+                        (
+                            "The NLP machine learning classifier flagged "
+                            f"email text with a {prob * 100:.1f}% "
+                            "probability of being a phishing attack."
+                        ),
                         {
                             "phishing_probability": prob,
                             "model_accuracy": "98.84%",
                             "top_tokens": prediction["top_indicative_tokens"]
                         }
                     ))
+
+            elif prediction["status"] != "unavailable":
+                result.warnings.append(
+                    "NLP prediction was not completed successfully. "
+                    "Rule-based analysis results are still available."
+                )            
 
             result.metrics["total_findings"] = len(result.findings)
             result.metrics["content_length"] = len(text_to_analyze)

@@ -45,55 +45,58 @@ class NLPInferenceService:
         return self._pipeline is not None
 
     def predict(self, text: str) -> Dict[str, Any]:
-        """
-        Runs inference on the provided email text.
-        Returns:
-            - phishing_probability: float between 0.0 and 1.0
-            - is_phishing: bool
-            - confidence_level: 'high', 'medium', or 'low'
-            - top_indicative_tokens: list of words from text contributing most to the score
-        """
-        if not self.is_ready or not text or not text.strip():
+        """Predict phishing probability and explicitly report prediction status."""
+
+        if not self.is_ready:
+            logger.warning("NLP prediction unavailable: model is not loaded.")
             return {
-                "phishing_probability": 0.0,
-                "is_phishing": False,
-                "confidence_level": "low",
-                "top_indicative_tokens": []
+                "status": "unavailable",
+                "probability": None,
+                "is_phishing": None,
+                "confidence": None,
+                "top_tokens": [],
+                "error": "NLP model is not loaded.",
+            }
+
+        if not isinstance(text, str) or not text.strip():
+            return {
+                "status": "invalid_input",
+                "probability": None,
+                "is_phishing": None,
+                "confidence": None,
+                "top_tokens": [],
+                "error": "Input text must be a non-empty string.",
             }
 
         try:
-            # Predict probabilities: [P(legit), P(phishing)]
             probs = self._pipeline.predict_proba([text])[0]
-            phishing_prob = float(probs[1])
-            is_phishing = bool(phishing_prob >= 0.50)
+            phishing_probability = float(probs[1])
 
-            # Determine confidence level
-            margin = abs(phishing_prob - 0.50)
-            if margin >= 0.35:
-                confidence_level = "high"
-            elif margin >= 0.15:
-                confidence_level = "medium"
-            else:
-                confidence_level = "low"
+            confidence = abs(phishing_probability - 0.5) * 2
 
-            # Extract top contributing tokens
             top_tokens = self._extract_top_tokens(text)
 
             return {
-                "phishing_probability": round(phishing_prob, 4),
-                "is_phishing": is_phishing,
-                "confidence_level": confidence_level,
-                "top_indicative_tokens": top_tokens
-            }
-        except Exception as e:
-            logger.error(f"NLP prediction failed: {e}")
-            return {
-                "phishing_probability": 0.0,
-                "is_phishing": False,
-                "confidence_level": "low",
-                "top_indicative_tokens": []
+                "status": "success",
+                "probability": phishing_probability,
+                "is_phishing": phishing_probability >= 0.5,
+                "confidence": float(confidence),
+                "top_tokens": top_tokens,
+                "error": None,
             }
 
+        except Exception as exc:
+            logger.exception("NLP prediction failed: %s", exc)
+
+            return {
+                "status": "error",
+                "probability": None,
+                "is_phishing": None,
+                "confidence": None,
+                "top_tokens": [],
+                "error": "NLP prediction failed.",
+            }
+        
     def _extract_top_tokens(self, text: str, top_k: int = 5) -> List[str]:
         """Identifies tokens in the input that have high positive weights towards phishing."""
         try:
